@@ -1,1 +1,0 @@
-python get_params.py --shield_params $1

@@ -24,6 +24,8 @@
 #include "TMath.h" 
 #include "TParticle.h" 
 #include "TVector3.h"
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 
 fluxDet::fluxDet(const char* name, const char* Title, Bool_t Active, Double_t X, Double_t Y,Double_t Z, Double_t dX, Double_t dY, Double_t dZ)

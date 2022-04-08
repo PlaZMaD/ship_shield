@@ -1,4 +1,3 @@
-#FROM olantwin/ship-base:201120
 FROM olantwin/ship-base:201120
 COPY . /ship
 RUN git clone https://github.com/ShipSoft/FairShip.git

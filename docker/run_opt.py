@@ -131,7 +131,6 @@ parser.add_argument("--coMuonShield", dest="muShieldWithCobaltMagnet", help="rep
 parser.add_argument("--MesonMother",   dest="MM",  help="Choose DP production meson source", required=False,  default=True)
 parser.add_argument("--optParams", dest='optParams', required=False, default=False)
 parser.add_argument("--processMiniShield", dest='processMiniShield', action="store_true", required=False)
-parser.add_argument("--zoneSize", dest='zone', action="store_true", required=False, default=0)
 
 
 options = parser.parse_args()
@@ -672,7 +671,7 @@ if options.processMiniShield:
       if 'mini' in volume.GetName() or 'Magn' in volume.GetName()  and not 'Absorb' in volume.GetName():#if 'mini' in volume.GetName():
         m += volume.Weight(0.01, 'a')
 
-    def check_acceptance(hit, bound=(330, 530)):
+    def check_acceptance(hit, bound=(300, 500)):
         """
         :param hit:
         :param bound: acceptance bounds (X,Y) in cm
@@ -680,8 +679,7 @@ if options.processMiniShield:
         """
         return abs(hit.GetX()) <= bound[0] and abs(hit.GetY()) <= bound[1]
 
-    def process_file(filename,  muons_output_name = "muons_output", epsilon=1e-9, debug=True,
-                     apply_acceptance_cut=False, acceptance_size=(330, 530)):
+    def process_file(filename):
         directory = os.path.dirname(os.path.abspath(filename))
         file = ROOT.TFile(filename)
 
@@ -690,69 +688,35 @@ if options.processMiniShield:
 
         MUON = 13
         muons_stats = []
-        events_with_more_than_two_hits_per_mc = 0
-        empty_hits = "Not implemented"
+        mom = ROOT.TVector3()
+        for event in tree:
+          weight = 0.
+          for hit in event.fluxDetPoint:
+              if hit:
+                  pid = hit.PdgCode()
+                  if (abs(pid) == 13):
+                      hit.Momentum(mom)
+                      P = mom.Mag() / u.GeV
+                      y = hit.GetY()
+                      x = hit.GetX()
 
-        for index, event in enumerate(tree):
-            if index % 5000 == 0:
-                print("N events processed: {}".format(index))
-            mc_pdgs = []
+                      x *= pid / 13.
+                      if (P > 1 and abs(y) < 5 * u.m and (x < 2.6 * u.m and x > -3 * u.m)):
+                          w = np.sqrt((560. - (x + 300.)) / 560.)
+                          weight += w
+          if weight > 0.:
+            muons_stats.append(weight)
+        return muons_stats
 
-            for hit in event.MCTrack:
-                mc_pdgs.append(hit.GetPdgCode())
-
-            muon_veto_points = defaultdict(list)
-            for hit in event.fluxDetPoint:
-                if hit.GetTrackID() >= 0 and\
-                   abs(mc_pdgs[hit.GetTrackID()]):
-                    if apply_acceptance_cut:
-                        if check_acceptance(hit, bound=acceptance_size):
-                            # Middle or inital stats??
-                            pos_begin = ROOT.TVector3()
-                            hit.Position(pos_begin)
-                            # Extracting only XY coordinates
-                            muon_veto_points[hit.GetTrackID()].append([pos_begin.X(), pos_begin.Y()])
-                    else:
-                        pos_begin = ROOT.TVector3()
-                        hit.Position(pos_begin)
-                        # Extracting only XY coordinates
-                        muon_veto_points[hit.GetTrackID()].append([pos_begin.X(), pos_begin.Y()])
-
-            for index, hit in enumerate(event.MCTrack):
-                if index in muon_veto_points:
-                    if debug:
-                        print("PDG: {}, mID: {}".format(hit.GetPdgCode(), hit.GetMotherId()))
-                        assert abs(hit.GetPdgCode()) == MUON
-                    muon = [
-                        hit.GetPx(),
-                        hit.GetPy(),
-                        hit.GetPz(),
-                        hit.GetStartX(),
-                        hit.GetStartY(),
-                        hit.GetStartZ(),
-                        hit.GetPdgCode(),
-                        hit.GetWeight()
-                    ]
-                    if True:#abs(muon[-2]) == 13:
-                      muons_stats.append(muon)
-                    if len(muon_veto_points[index]) > 1:
-                        events_with_more_than_two_hits_per_mc += 1
-                        continue
-
-        print("events_with_more_than_two_hits_per_mc: {}".format(events_with_more_than_two_hits_per_mc))
-        print("Stopped muons: {}".format(empty_hits))
-        print("Total events returned: {}".format(len(muons_stats)))
-        return np.array(muons_stats)
-
-    muons_stats = process_file(os.path.join(outFile), apply_acceptance_cut=True, debug=False, acceptance_size=(options.zone, options.zone) if options.zone>0. else (330, 530))
+    muons_stats = process_file(os.path.join(outFile))
     if len(muons_stats) == 0:
-          muon_kinematics = np.array([])
+          muon_kinematics = []
     else:
           muon_kinematics = muons_stats
     returned_params = {
           "w": m,
           "params": [float(str.strip(par))for par in options.optParams.split(',')],
-          "kinematics": muon_kinematics.tolist()
+          "kinematics": muon_kinematics
       }
     with open(os.path.join(options.outputDir, "optimise_input.json"), "w") as f:
           json.dump(returned_params, f)

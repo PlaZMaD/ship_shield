@@ -7,30 +7,47 @@ import pickle
 import os
 import shutil
 import numpy as np
-
+from skopt.space.space import Integer, Space, Real
 from sklearn.ensemble import GradientBoostingRegressor
 from skopt import Optimizer
 from skopt.learning import GaussianProcessRegressor, RandomForestRegressor, GradientBoostingQuantileRegressor
 
-from commons import FCN, CreateSpace, StripFixedParams, AddFixedParams, ParseParams
+from commons import FCN
 
-from opt_config import (RUN, POINTS_IN_BATCH, RANDOM_STARTS, MIN, METADATA_TEMPLATE)
+from opt_config import (RUN, RANDOM_STARTS, MIN, METADATA_TEMPLATE)
 from run_kub import run_batch
 
+POINTS_IN_BATCH = 10
 SLEEP_TIME = 60
-#DEFAULT_POINT = [70,170,214.8,180.4,309.1,283.9,225.4,245,40,40,150,150,2,2,80,80,150,150,2,2,67.1,49.7,27.5,37.1,35.6,7.1,54.9,18,78.1,175.3,23.2,9.4,32.9,24.2,28,40.4,40.8,2.6,3.9,26.4,77,38.4,0.7,8.8,13.3,41.1,219.5,67.6,6.7,0.5,15.4,68.1,92.3,233.6,5.8,36.9]
-#DEFAULT_POINT = [70,170,200,200,200,200,200,200,
-#        70,70,70,70,30,30,
-#        70,70,70,70,30,30,
-#        70,70,70,70,30,30,
-#        70,70,70,70,30,30,
-#        70,70,70,70,30,30,
-#        70,70,70,70,30,30,
-#        70,70,70,70,30,30,
-#        70,70,70,70,30,30]
-#DEFAULT_POINT = [70,170,214.8,180.4,309.1,183.9,225.4,245,40,40,150,150,2,2,80,80,150,150,2,2,67.1,49.7,27.5,37.1,35.6,7.1,54.9,18,78.1,175.3,23.2,9.4,32.9,24.2,28,40.4,40.8,2.6,3.9,26.4,77,38.4,0.7,8.8,13.3,41.1,219.5,67.6,6.7,0.5,15.4,68.1,92.3,233.6,5.8,36.9]
-DEFAULT_POINT =  [70.0, 170.0, 178.0, 177.0, 240.0, 212.0, 261.0, 207.0, 40.0, 40.0, 150.0, 150.0, 2.0, 2.0, 80.0, 80.0, 150.0, 150.0, 2.0, 2.0,72.0, 51.0, 29.0, 46.0, 10.0, 7.0, 54.0, 38.0, 46.0, 192.0, 14.0, 9.0, 10.0,31.0, 35.0, 31.0, 51.0, 11.0, 3.0, 32.0, 54.0, 24.0, 8.0, 8.0, 22.0, 32.0, 209.0, 35.0, 8.0, 13.0, 33.0, 77.0, 85.0, 241.0, 9.0, 26.0]
 
+DEFAULT_POINT = [70.0, 170.0, 208.0, 207.0, 281.0, 248.0, 305.0, 242.0, 
+40.0, 40.0, 150.0, 150.0, 2.0, 2.0, 
+80.0, 80.0, 150.0, 150.0, 2.0, 2.0,
+72.0, 51.0, 29.0, 46.0, 10.0, 7.0, 
+54.0, 38.0, 46.0, 192.0, 14.0, 9.0,
+10.0, 31.0, 35.0, 31.0, 51.0, 11.0, 
+40.0, 32.0, 54.0, 24.0, 8.0, 8.0,
+22.0, 32.0, 209.0, 35.0, 8.0, 13.0, 
+33.0, 77.0, 85.0, 241.0, 9.0, 26.0]
+
+one_d_index = 38
+def StripFixedParams(point):
+    #removes absober data from the point
+    stripped_point = [point[one_d_index]]
+    return stripped_point
+
+def CreateSpace(nMagnets=8):
+    
+    dimensions = [Integer(3, 100)]
+    return Space(dimensions)
+
+def ParseParams(params_string):
+    return [float(x) for x in params_string.strip('[]').split(',')]
+
+def AddFixedParams(point):
+    point_out = copy.deepcopy(DEFAULT_POINT)
+    point_out[one_d_index] = point[0]
+    return point_out
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -70,8 +87,7 @@ def get_result(jobs):
         muons_w =  0
     return weight, 0, muons_w
 
-
-def old_get_result(jobs):
+def get_result_old(jobs):
     results = []
     weights = []
     #print(jobs)
@@ -159,16 +175,20 @@ def WaitCompleteness(mpoints):
 
 def CalculatePoints(points, tag, cache, space):
     tags = {json.dumps(points[i], cls=NpEncoder):str(tag)+'-'+str(i) for i in range(len(points))}
+    print(points)
     shield_jobs = [
         SubmitKubJobs(point, tags[json.dumps(point, cls=NpEncoder)])
-        for point in points if json.dumps(point, cls=NpEncoder) not in cache
+        for point in points if json.dumps(point, cls=NpEncoder) not in cache.keys()
     ]
     print("submitted: \n", points)
 
     if shield_jobs:
         shield_jobs = WaitCompleteness(shield_jobs)
         X_new, y_new = ProcessJobs(shield_jobs, tag, space)
-    return X_new, y_new
+        return X_new, y_new
+    else:
+        print("Where are my mf jobs?")
+        return 0
 
 def load_points_from_dir(db_name='db.pkl'):
     with open (db_name, 'rb') as f:
@@ -212,13 +232,14 @@ def main():
 
     space = CreateSpace()
     clf = CreateOptimizer(args.opt, space, random_state=int(args.state) if args.state else None)
-
+    print(clf)
     if args.olddb:
         cache = load_points_from_dir(args.db)
     else:
         cache = {}
 
     tag = len(cache.keys())
+
 #Load calculated points from DB
     if len(cache.keys())>0:
         print('Received previous points ', len(cache.keys()))
@@ -242,7 +263,8 @@ def main():
         with open(args.db, 'wb') as db:
                  pickle.dump(cache, db, pickle.HIGHEST_PROTOCOL)
 
-    while not (cache and len(cache.keys()) > RANDOM_STARTS):
+    while not (cache and len(cache.keys()) >  RANDOM_STARTS):
+        print("start points...")
         tag = tag + 1
         points = [AddFixedParams(p) for p in space.rvs(n_samples=POINTS_IN_BATCH)]
         # points = [transform_forward(p) for p in points]
@@ -260,6 +282,7 @@ def main():
 
     while True:
         tag = tag+1
+        print("Main cycle, tag is ", tag)
         points = [AddFixedParams(p) for p in clf.ask(n_points=POINTS_IN_BATCH, strategy='cl_mean')]
         repeat_mask = [json.dumps(point, cls=NpEncoder) in cache.keys() for point in points]
         if any(repeat_mask):
@@ -279,8 +302,6 @@ def main():
                         shutil.copy2(args.db, 'old_db.pkl')
                         with open(args.db, 'wb') as db:
                             pickle.dump(cache, db, pickle.HIGHEST_PROTOCOL)
-
-        # X_new = [transform_backward(point) for point in X_new]
 
         result = clf.tell(StripFixedParams_multipoint(X_new), y_new)
 

@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 # parameters of server
-K8S_PROXY = 'https://cern-mc43h.ydf.yandex.net:8443'
+K8S_PROXY = ''
 
-HOST_OUTPUT_DIRECTORY = 'EK_output/cube_optimisation_11/'
-HOST_LOCALOUTPUT_DIRECTORY = '/mnt/shipfs/EK_output/cube_optimisation_11/'
+HOST_OUTPUT_DIRECTORY = 'folderName'
+HOST_LOCALOUTPUT_DIRECTORY = '/mnt/shipfs/folderName'
 DOCKER_OUTPUT_DIRECTORY = '/output'
 
 # HOST_SAMPLE_DIRECTORY - local folder in the cluster
@@ -30,7 +30,7 @@ JOB_SPEC = {
                 "containers": [
                     {
                         "name": "ekship",
-                        "image": "mrphys/shield_opt:big_opt_14",
+                        "image": "mrphys/shield_opt:new_w6",#"mrphys/shield_opt:big_opt_14",
                         # Set env in the code
                         # "env": [
                         #     {"name": "fileName",
@@ -79,12 +79,34 @@ JOB_SPEC = {
                     {
                         "name": "yandex",
                         "persistentVolumeClaim": {
-                             "claimName": "ekurbatov-s3"
+                             "claimName": "**volname**"
                         }
                     }
-]
+                    # # Use this with mount
+                    # # {
+                    # #     "name": "output",
+                    # #     "hostPath": {
+                    # #         # Fill in the python script
+                    # #         "path": "",
+                    # #         "type": "Directory"
+                    # #     }
+                    # # },
+                    # # Use this with azcopy
+                    # {
+                    #     "name": "output",
+                    #     "emptyDir": {}
+                    # },
+                    # {
+                    #     "name": "muonsample",
+                    #     "hostPath": {
+                    #         "path": HOST_SAMPLE_DIRECTORY,
+                    #         "type": "Directory"
+                    #     }
+                    # }
+                ]
             }
         },
         "backoffLimit": 1
     }
 }
+

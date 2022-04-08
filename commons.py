@@ -25,17 +25,26 @@ def StripFixedParams(point):
 def CreateSpace(nMagnets=8):
     dZgap = 10
     zGap = dZgap / 2  # halflengh of gap
-    old_dimensions = nMagnets * [
-        Integer(170 + zGap, 300 + zGap)  # magnet lengths
+    dimensions = nMagnets * [
+        Integer(170 + zGap, 300 + zGap)  # magnet lengths  Integer(170 + zGap, 300 + zGap)
         ] + nMagnets * (
             2 * [
-                Integer(10, 100)  # dXIn, dXOut
+                Integer(3, 100)  # dXIn, dXOut
             ] + 2 * [
-                Integer(20, 200)  # dYIn, dYOut
+                Integer(20, 245)  # dYIn, dYOut
             ] + 2 * [
                 Integer(2, 70)  # gapIn, gapOut
             ])
-    dimensions = nMagnets * [
+    # dimensions = 2 * [Integer(100 + zGap, 260 + zGap)] + 2*[Integer(100 + zGap, 180)] + [Integer(100 + zGap, 242)] +  [Integer(100 + zGap, 213)] +  [Integer(100 + zGap, 262)] +  [Integer(100 + zGap, 208)] + nMagnets * (
+    #         2 * [
+    #             Integer(3, 100)  # dXIn, dXOut
+    #         ] + 2 * [
+    #             Integer(20, 245)  # dYIn, dYOut
+    #         ] + 2 * [
+    #             Integer(2, 70)  # gapIn, gapOut
+    #         ])
+
+    new_dimensions = nMagnets * [
         Real(170 + zGap, 310 + zGap)  # magnet lengths
         ] + nMagnets * (
             2 * [

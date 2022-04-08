@@ -84,16 +84,14 @@ def run_kube_job(job_spec: dict,
 
 
 def run_batch(metaData):
- # print(metaData)
- # print(str(json.loads(metaData)['user']['params']))
   paramsM = str(json.loads(metaData)['user']['params'][1:-1])
   print(paramsM.__class__, paramsM)
   logging.basicConfig(level=logging.INFO)
   config_k8s = pykube.KubeConfig.from_file('~/.kube/config')
   api = pykube.HTTPClient(config_k8s)
   api.timeout = 1e6
-  batch_size = 8
-  AZURE_DATA_URI = os.environ["AZURE_DATA_URI"]
+  batch_size = 10
+  AZURE_DATA_URI = "/output/"
   baseName = str(json.loads(metaData)['user']['tag'])
   procs = []
   nEvents_in = 485879
@@ -105,17 +103,16 @@ def run_batch(metaData):
   exp_folder = get_experiment_folder()
 
   for jobN in range(batch_size):
-  	job_folder = str(Path(HOST_OUTPUT_DIRECTORY)  / baseName / str(jobN)) 
+  	job_folder = str(Path(HOST_OUTPUT_DIRECTORY)  / baseName / str(jobN))
   	local_job_folder = str(Path(HOST_LOCALOUTPUT_DIRECTORY) / baseName / str(jobN))
-  	os.makedirs(local_job_folder, exist_ok=True)
-  	logging.info(f"Job folder {local_job_folder} is created")
+ 
   	envs = {
   		    "first_event": startPoints[jobN],
-  		    "nEvents": chunkLength[jobN],
+  		    "nEvents":chunkLength[jobN],
   		    "jName": baseName,
   		    "jNumber": jobN + 1,
             "sFactor": 1,
-  		    "AZURE_OUTPUT_DATA_URI": AZURE_DATA_URI.format(job_folder),
+  		    "AZURE_OUTPUT_DATA_URI": os.path.join(AZURE_DATA_URI, job_folder),
           "PARAMS": str(json.loads(metaData)['user']['params'][1:-1])}
   	print(envs)
   	job_spec = deepcopy(JOB_SPEC)
